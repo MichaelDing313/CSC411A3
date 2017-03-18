@@ -59,10 +59,11 @@ def init_x_and_y_matrix(directories, keyword):
                 # neg y = 0 
                 y_matrix = np.vstack((y_matrix,0))
                 
-    print 'x_', x_matrix.shape
-    print 'y_', y_matrix.shape
+#    print 'x_', x_matrix.shape
+#    print 'y_', y_matrix.shape
+    # x_ (2000, 39697)
+    # y_ (2000, 1)
     return x_matrix,y_matrix
 
-init_x_and_y_matrix('review_polarity/',keyword)                
-                
+init_x_and_y_matrix('review_polarity/',keyword) 
         
