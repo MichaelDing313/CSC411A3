@@ -48,8 +48,10 @@ top_pos = []
 top_neg = []
 for i in range (3):
     top_pos.append(max(pos_dictionary,key=pos_dictionary.get))
+    print top_pos[i], pos_dictionary[top_pos[i]]
     pos_dictionary[top_pos[i]] = 0
     top_neg.append(max(neg_dictionary,key=neg_dictionary.get))
+    print top_neg[i], neg_dictionary[top_neg[i]]
     neg_dictionary[top_neg[i]] = 0
 top_pos
 top_neg
