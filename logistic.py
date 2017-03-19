@@ -3,13 +3,16 @@ import os
 
 from collections import OrderedDict
 import re
-
+from collections import Counter
 
 
 # read polarity dataset
 def read_file():
     directories = ['pos','neg']
     keyword = []
+    pos_dictionary = {}
+    neg_dictionary = {}
+    
     for directory in directories:
         path = 'review_polarity/'+'txt_sentoken/' + directory
         for txt_file in os.listdir(path):
@@ -23,12 +26,27 @@ def read_file():
                 keyword += file_word_list
     #print keyword
     
+        store_word = {} # dictionary
+        for word in keyword:
+            if word not in store_word:
+                store_word[word] = 0
+            else:
+                store_word[word] +=1
+        if directory == directories[0]:
+            pos_dictionary = store_word
+        else:
+            neg_dictionary = store_word
+            
+    
     return list(OrderedDict.fromkeys(keyword))
     
     
 keyword = read_file()
 
-
+#def max_word(directory):
+    
+    
+    
 # path = 'review_polarity/'+'txt_sentoken/' + directory
 # want 200 training; 200 validation
 def init_x_and_y_matrix(directories, keyword):
@@ -65,5 +83,6 @@ def init_x_and_y_matrix(directories, keyword):
     # y_ (2000, 1)
     return x_matrix,y_matrix
 
-init_x_and_y_matrix('review_polarity/',keyword) 
+init_x_and_y_matrix('review_polarity/',keyword)                
+                
         
