@@ -235,6 +235,7 @@ def part1():
 log_level = "ALL"
 ## END init code
 
+log_event("-------------- PART 1 --------------------",9)
 # read data and convert to set
 pos_data,neg_data = read_data()
 data_to_set(pos_data)
@@ -249,9 +250,12 @@ neg_train, neg_vali, neg_test = split_set(neg_data)
 count_pos = tally_counts(pos_data,pos_train)
 count_neg = tally_counts(neg_data,neg_train)
 
+log_event("-------------- PART 2 --------------------",9)
 # sort words by occurance
 scount_pos = sorted(count_pos, key=count_pos.get, reverse=False)
 scount_neg = sorted(count_pos, key=count_pos.get, reverse=False)
+
+
 
 
 
