@@ -1,3 +1,7 @@
+## PART whatever
+## PLEAE RUN IN PYTHON 2.7
+
+
 #############
 ## IMPORTS ##
 #############
@@ -126,7 +130,7 @@ def read_data(tar = False, root_path = "./"):
     return pos_dic,neg_dic
 
 ## Collapse all lists in the dictonry into sets, only one occurance of each word is kept
-def data_to_set(in_dic):
+def data_to_set(in_dic,  set_name = ""):
     '''
     This function takes in a input dictionary and convert lists assigned to each
     key into sets, thus eliminating all duplicat words
@@ -148,7 +152,7 @@ def data_to_set(in_dic):
 
 
 ## Break down data into traning, validation and test set    
-def split_set(in_dic, set_name = "default", train_size = 600, vali_size = 200, test_size = 200):    
+def split_set(in_dic, set_name = "", train_size = 600, vali_size = 200, test_size = 200):    
     '''
     This function takes in a input dictionary and outputs 3 seperate dictionaries.
     input is the dictionary containing all input data and outputs training,
@@ -227,9 +231,7 @@ def part1():
 ## END PART 1
 
 
-##########################
-## EXECUTION BEGIN HERE ##
-##########################
+
 
 ## Init code
 log_level = "ALL"
