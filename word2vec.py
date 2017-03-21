@@ -379,13 +379,55 @@ def build_context(in_dic, in_keys = None, set_name=''):
     return context_dic
 
 ## Fix inconsistency between supplied embedding and word set
-def fix_words(w2i, word_context):
+def fix_words(w2i, wc):
     '''
     Fix inconsistency with supplied embedding and generated
     word adjacency lists
     '''
     
+    log_event("Fixing Word Inconsistencies",2)
 
+    # Make a list of valid that is present in both sets
+    valid_words = set([str(i) for i in w2i.values()]).intersection(wc.keys())
+    
+    # Flip the order of dictionaries, since it is built backwards
+    flip_w2i = dict(zip(w2i.values(), w2i.keys()))
+    
+    fixed_context = dict.fromkeys(valid_words)
+    fixed_w2i = dict.fromkeys(valid_words)
+    for i in valid_words:
+        fixed_context[i] = wc[i]
+        fixed_w2i[i] = flip_w2i[i]
+        
+    return fixed_w2i, fixed_context
+    
+    log_event("Finished Fixing Word Inconsistencies",2)
+
+## Get Minibatch For Training
+def get_batch(context_dic, embed_dic, batch_size):
+    '''
+    This function extracts a subset of the input data to train logistic regression
+    returns two lists, the input word set and answers related to that word
+    
+    '''
+    
+    # Not specifying exactly how many positive and negative examples to use
+    # because its much easier and faster and more reliabel to not
+    
+    # List of all words we are looking at
+    word_list = context_dic.keys()
+    
+    ret = np.empty(batch_size,2)
+    
+    for i in range(batch_size):
+        # Loop batch_size times, adding a data pair every time
+        
+        # Generate two words from the big list
+        rand_word = random.sample(word_list, 2)
+        
+        # Check if these two words are adjacent
+        if 
+        
 ############
 ## PART 7 ##
 ############
@@ -422,10 +464,12 @@ combined_dic.update(pos_data)
 combined_dic.update(neg_data)
 
 # Build adjacency lists for all words
-word_context = build_context(combined_dic,None,'combined')
+word_context = build_context(combined_dic,pos_train+neg_train,'combined')
 
 # Load embeddings from 
 embed = np.load("embeddings.npz")["emb"]
 w2i = np.load("embeddings.npz")["word2ind"].flatten()[0]
 
-hf(embed[d_look(w2i,u'engineer')]-embed[d_look(w2i,u'indian')])
+w2i, word_context = fix_words(w2i, word_context)
+
+
