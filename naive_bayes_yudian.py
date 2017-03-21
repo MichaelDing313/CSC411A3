@@ -8,6 +8,9 @@ from shutil import copy2
 import math
 
 
+import string
+
+
 # read polarity dataset
 def read_file():
     directories = ['pos','neg']
@@ -19,10 +22,15 @@ def read_file():
         path = 'review_polarity/'+'txt_sentoken/' + directory
         for txt_file in os.listdir(path):
             with open(path + '/' + txt_file) as f:
-                file_word_list = re.split('\W+',f.read().lower())
-#   >>> re.split('\W+', 'Words, words, words.')
-# ['Words', 'words', 'words', '']
+
+
+                file_list = f.read().lower()
+                for pun in string.punctuation:
+                  file_list = file_list.replace(pun," ")
+                file_list = re.split('\W+', file_list)
                 file_word_list.remove('')
+                file_list = list(OrderedDict.fromkeys(file_list))
+
                 #merge word_lists
                 keyword += file_word_list
     
@@ -77,8 +85,15 @@ def count_word_prob(path):
 
     for txt_file in os.listdir(path):
         with open(path + '/' + txt_file) as f:
-            file_word_list = re.split('\W+',f.read().lower())
+
+            file_word_list = f.read().lower()
+            for pun in string.punctuation:
+                file_word_list = file_word_list.replace(pun," ")
+            file_word_list = re.split('\W+', file_word_list)
             file_word_list.remove('')
+            file_word_list = list(OrderedDict.fromkeys(file_word_list))
+
+
             length = len(file_word_list) # each txt file word list length
             for word in file_word_list:
                 if word not in word_dic:
@@ -138,9 +153,14 @@ def performance(path,cls,m,k):
     total = len(os.listdir(path))    
     for txt_file in os.listdir(path):
         f = open(path + '/' + txt_file)
-        file_word_list = re.split('\W+', f.read().lower())
+
+        file_word_list = f.read().lower()
+        for pun in string.punctuation:
+            file_word_list = file_word_list.replace(pun," ")
+        file_word_list = re.split('\W+', file_word_list)
         file_word_list.remove('')
         file_word_list = list(OrderedDict.fromkeys(file_word_list))
+
         predict = predict_review(file_word_list, m, k)
         if (predict == cls):
             correct_count += 1
@@ -196,9 +216,10 @@ def part2():
     count_train_neg = 0
     count_train_total = 0
     
+
     m = 0.1
     print 'm =',m
-    k = 150
+    k = 50
     print 'k =',k
     
     train_pos_dic, count_train_pos = count_word_prob ('train/pos')
@@ -225,3 +246,6 @@ def part2():
 # print '---run - part 2 ---\n'
 # part2_creat_sets()
 part2()
+
+
+
