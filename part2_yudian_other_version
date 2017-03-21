@@ -9,22 +9,11 @@ import math
 import heapq
 
 import string
-import pickle
+
 
 
 word_list = {}
 
-def saveJ(Adic,fil="dat.pickle"):
-  file1 = open(fil,'wb+')
-  ptems = pickle.dumps(Adic)
-  file1.write(ptems)
-  file1.close()
-
-def readJ(fil="dat.pickle"):
-  fil = open(fil,"r")
-  Adic = pickle.load(fil)
-  fil.close()
-  return Adic
 
 def read_word(file_u):
   with open(file_u) as f:
@@ -37,7 +26,7 @@ def read_word(file_u):
   return file_list
 
 def read_list():
-  #paths = ["test","train","txt_sentoken","vali"]
+  #paths = ["test","train","txt_sentoken","validation"]
   paths = ["test","train","vali"]
   for path_m in paths:
     for file_u in os.listdir('%s/pos'%(path_m)):
@@ -53,8 +42,7 @@ def read_list():
         word_list[(w_key)] = [0,0]
 
 read_list()
-saveJ(word_list,"word_list")
-word_list = readJ("word_list")
+
 
 def read_list_c(path_m):
   num_rev = [0.0,0.0,0.0]
@@ -82,9 +70,6 @@ def read_list_c(path_m):
 
 #[cur_list,num_rev] = read_list_c("txt_sentoken")
 [cur_list,num_rev] = read_list_c("train")
-saveJ([cur_list,num_rev],"cur_list")
-
-[cur_list,num_rev]=readJ("cur_list")
 
 #k_tot = len(word_list.keys())
 k_tot = len(cur_list.keys())
