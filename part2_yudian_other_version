@@ -1,0 +1,136 @@
+from collections import Counter
+from collections import OrderedDict
+import re
+import os
+import numpy as np
+from numpy import random
+from shutil import copy2
+import math
+import heapq
+
+import string
+
+
+
+word_list = {}
+
+
+def read_word(file_u):
+  with open(file_u) as f:
+    file_list = f.read().lower()
+    for pun in string.punctuation:
+      file_list = file_list.replace(pun," ")
+    file_list = re.split('\W+', file_list)
+    file_list.remove('')
+    file_list = list(OrderedDict.fromkeys(file_list))
+  return file_list
+
+def read_list():
+  #paths = ["test","train","txt_sentoken","validation"]
+  paths = ["test","train","vali"]
+  for path_m in paths:
+    for file_u in os.listdir('%s/pos'%(path_m)):
+      file_u = '%s/pos/'%(path_m) + file_u
+      dic_tem = read_word(file_u)
+      for w_key in dic_tem:
+        word_list[(w_key)] = [0,0]
+
+    for file_u in os.listdir('%s/neg'%(path_m)):
+      file_u = '%s/neg/'%(path_m) + file_u
+      dic_tem = read_word(file_u)
+      for w_key in dic_tem:
+        word_list[(w_key)] = [0,0]
+
+read_list()
+
+
+def read_list_c(path_m):
+  num_rev = [0.0,0.0,0.0]
+  cur_list = {}
+  for w_key_b in word_list.keys():
+    cur_list[w_key_b] = [0.0,0.0]
+
+  for file_u in os.listdir('%s/neg'%(path_m)):
+    num_rev[0] += 1
+    file_u = '%s/neg/'%(path_m) + file_u
+    dic_tem = read_word(file_u)
+    for w_key in dic_tem:
+      cur_list[(w_key)][0] += 1.0
+
+  for file_u in os.listdir('%s/pos'%(path_m)):
+    num_rev[1] += 1
+    file_u = '%s/pos/'%(path_m) + file_u
+    dic_tem = read_word(file_u)
+    for w_key in dic_tem:
+      #cur_list[(w_key)][1] += 1
+      cur_list[(w_key)][1] += 1.0
+
+  num_rev[2] = num_rev[0] + num_rev[1]
+  return [cur_list,num_rev]
+
+#[cur_list,num_rev] = read_list_c("txt_sentoken")
+[cur_list,num_rev] = read_list_c("train")
+
+#k_tot = len(word_list.keys())
+k_tot = len(cur_list.keys())
+#k_tot = 30
+
+def get_pro(word,m,pm):
+  val = 1.0*cur_list[(word)][pm]/num_rev[pm]
+  val = (val+m*k_tot)/(num_rev[pm]+k_tot)
+  return val
+
+#print num_rev
+
+def predict_r(word_list, m):
+  pro = [0.0,0.0]
+  for pm in [0,1]:
+    for word in word_list:
+      pro[pm] += math.log(get_pro(word,m,pm))
+    pro[pm] = pro[pm]+math.log(1.0*num_rev[pm]/num_rev[2])
+  if pro[0]>pro[1]:
+    return 0
+  else:
+    return 1
+    
+
+def get_performance(path, m):
+  po_cor = 0
+  ne_cor = 0
+
+  po_tot = len(os.listdir(path + '/pos'))
+  ne_tot = len(os.listdir(path + '/neg'))
+
+  for fil in os.listdir(path + '/pos'):
+    f = path + '/pos' + '/' + fil
+    word_list = read_word(f)
+    predict = predict_r(word_list, m)
+    if (predict == 1):
+          po_cor += 1
+  print(path+" positive performance: "+str(po_cor*100/po_tot)+"%")
+
+  for fil in os.listdir(path + '/neg'):
+    f = path + '/neg' + '/' + fil
+    word_list = read_word(f)
+    predict = predict_r(word_list, m)
+    if (predict == 0):
+      ne_cor += 1
+  print(path+" negative performance: "+str(ne_cor*100/ne_tot)+"%")
+  return ((po_cor+ne_cor) * 100 / (po_tot+ne_tot))
+
+
+def part2(m = 0.0000000000001):
+  train_per = get_performance('train', m)
+  val_per   = get_performance('vali', m)
+  test_per  = get_performance('test', m)
+  
+  print ("Training performance: "+str(train_per)+"%")
+  print ("Validation performance: "+str(val_per)+"%")
+  print ("Test performance: "+str(test_per)+"%")
+
+
+part2(0.00000001)
+#part2(0.00001)
+
+
+

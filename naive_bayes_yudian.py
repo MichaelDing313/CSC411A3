@@ -8,6 +8,9 @@ from shutil import copy2
 import math
 
 
+import string
+
+
 # read polarity dataset
 def read_file():
     directories = ['pos','neg']
@@ -19,10 +22,15 @@ def read_file():
         path = 'review_polarity/'+'txt_sentoken/' + directory
         for txt_file in os.listdir(path):
             with open(path + '/' + txt_file) as f:
-                file_word_list = re.split('\W+',f.read().lower())
-#   >>> re.split('\W+', 'Words, words, words.')
-# ['Words', 'words', 'words', '']
+
+
+                file_list = f.read().lower()
+                for pun in string.punctuation:
+                  file_list = file_list.replace(pun," ")
+                file_list = re.split('\W+', file_list)
                 file_word_list.remove('')
+                file_list = list(OrderedDict.fromkeys(file_list))
+
                 #merge word_lists
                 keyword += file_word_list
     
@@ -74,94 +82,170 @@ def randomly_make_set_folders(train_size, vali_size, test_size,pos_path,neg_path
 def count_word_prob(path):    
     count_words = 0  #count words appear probablity for all txt_files
     word_dic = {}
-    word_prob_dic = {}  # store freq probability in a dictionary
-    
+
     for txt_file in os.listdir(path):
         with open(path + '/' + txt_file) as f:
-            file_word_list = re.split('\W+',f.read().lower())
+
+            file_word_list = f.read().lower()
+            for pun in string.punctuation:
+                file_word_list = file_word_list.replace(pun," ")
+            file_word_list = re.split('\W+', file_word_list)
             file_word_list.remove('')
+            file_word_list = list(OrderedDict.fromkeys(file_word_list))
+
+
             length = len(file_word_list) # each txt file word list length
             for word in file_word_list:
-                if word not in word_prob_dic:
-                    word_dic[word] = 0
+                if word not in word_dic:
+                    word_dic[word] = 1.0/length
                 else:
-                    word_dic[word] += 1
-            for word in word_dic:
-                if word_dic[word] == 0:
-                    word_prob_dic[word] = float(1/length)
-                else:
-                    word_prob_dic[word] += float(word_dic[word]/length)
+                    word_dic[word] += 1.0/length
+            count_words += 1.0/length
+    return word_dic, count_words
 
-            count_words += length
-    return count_words,word_prob_dic,word_dic
+##
+def prob_C_given_word(cls, word, m, k):
+    word_list = [word]
+    prob_word = math.log(train_total_dic[word]/count_train_total)
+    prob_word_given_C = log_prob_C_given_words(word_list, m, k, cls)
+    return prob_word_given_C - prob_word
+
+
+def log_prob_C_given_words(word_list, m, k, cls):
+    prob_words_cls = add_logs_prob_words_given_C(word_list, m, k, cls)
+    if cls == 1:
+        prob_C = prob_pos
+    else:
+        prob_C = prob_neg
+    return prob_words_cls + math.log(prob_C)
     
-
-def prob_ai_given_class(word_list,count_words,word_prob_dic,word_dic,cls, m=0.01, k=10):
-    # keywords : a1,a2,...
-    # a1a2a3...an = exp(log(a1)+log(a2)+...log(an))    
-    log = 0
+    
+def add_logs_prob_words_given_C(word_list, m, k, cls):
+    sum = 0
     for word in word_list:
         if cls == 1:
-            if word in word_dic:
-                count_ai1_cls = word_dic[word]
+            if word in train_pos_dic:
+                word_count = train_pos_dic[word]
             else:
-                count_ai1_cls = 0
-            
-            count_cls = count_words    
-            p_ai1_given_cls = math.log(((count_ai1_cls) + m*k)/(count_cls + k))
+                word_count = 0
+            prob_word = math.log((word_count + m * k)/(count_train_pos + k))
         else:
-            if word in word_dic:
-                count_ai1_cls = word_dic[word]
+            if word in train_neg_dic:
+                word_count = train_neg_dic[word]
             else:
-                count_ai1_cls = 0
-            
-            count_cls = count_words    
-            p_ai1_given_cls = math.log(((count_ai1_cls) + m*k)/(count_cls + k))
-        log += p_ai1_given_cls
-    return log
+                word_count = 0
+            prob_word = math.log((word_count + m * k)/(count_train_neg + k))
+        sum += prob_word
+    return sum
 
-def prob_cls_given_ai(word_list,count_words,word_prob_dic,word_dic,cls,prob_pos,prob_neg, m=0.01,k=10):
-    log_p_ai_cls = prob_ai_given_class(word_list,count_words,word_prob_dic,word_dic,cls, m=0.01, k=10)
-    if cls == 1:
-        prob_class = prob_pos
+
+def predict_review(word_list, m, k):
+    prob_pos_review = log_prob_C_given_words(word_list, m, k, 1)
+    prob_neg_review = log_prob_C_given_words(word_list, m, k, 0)
+    if prob_pos_review >= prob_neg_review:
+        return 1
     else:
-        prob_class = prob_neg
-    return log_p_ai_cls + math.log(prob_class)
+        return 0
+        
+        
+def performance(path,cls,m,k):
+    correct_count = 0
+    total = len(os.listdir(path))    
+    for txt_file in os.listdir(path):
+        f = open(path + '/' + txt_file)
+
+        file_word_list = f.read().lower()
+        for pun in string.punctuation:
+            file_word_list = file_word_list.replace(pun," ")
+        file_word_list = re.split('\W+', file_word_list)
+        file_word_list.remove('')
+        file_word_list = list(OrderedDict.fromkeys(file_word_list))
+
+        predict = predict_review(file_word_list, m, k)
+        if (predict == cls):
+            correct_count += 1
+    print 'correct count:', correct_count
+    print 'out of total', total
+    print(path+" performance: "+str(correct_count*100/total)+"%\n")
+    return correct_count,total
+
+    
+def get_general_performance(path1,path2,m,k):
+    pos_correct_count,pos_total = performance(path1,1,m,k)
+    neg_correct_count,neg_total = performance(path2,0,m,k)    
+    return ((pos_correct_count+neg_correct_count) * 100 / (pos_total+neg_total))    
 
 
-##      CALL -> select all and uncommand to run
-print '---part 1---\n'
-# keyword,pos_dictionary,neg_dictionary = read_file()
-# # find the top 3 words
-# top_pos = []
-# top_neg = []
-# for i in range (3):
-#     top_pos.append(max(pos_dictionary,key=pos_dictionary.get))
-#     print 'pos',top_pos[i], pos_dictionary[top_pos[i]]
-#     pos_dictionary[top_pos[i]] = 0
-#     top_neg.append(max(neg_dictionary,key=neg_dictionary.get))
-#     print 'neg',top_neg[i], neg_dictionary[top_neg[i]]
-#     neg_dictionary[top_neg[i]] = 0
-# print 'most frequently appeared word in positive reviews',top_pos
-# print 'most frequently appeared word in negative reviews',top_neg
+##      prepare to call
+def part1():
+    keyword,pos_dictionary,neg_dictionary = read_file()
+    # find the top 3 words
+    toprob_pos = []
+    toprob_neg = []
+    for i in range (3):
+        toprob_pos.append(max(pos_dictionary,key=pos_dictionary.get))
+        print 'pos',toprob_pos[i], pos_dictionary[toprob_pos[i]]
+        pos_dictionary[toprob_pos[i]] = 0
+        toprob_neg.append(max(neg_dictionary,key=neg_dictionary.get))
+        print 'neg',toprob_neg[i], neg_dictionary[toprob_neg[i]]
+        neg_dictionary[toprob_neg[i]] = 0
+    print 'most frequently appeared word in positive reviews',toprob_pos
+    print 'most frequently appeared word in negative reviews',toprob_neg
 
 
-print '---part 2---\n'
-print 'randomly select sets \n'
-# pos_path = 'review_polarity/txt_sentoken/pos'
-# neg_path = 'review_polarity/txt_sentoken/neg'
-# # training 150
-# # vali&test 100 from pos, 100 from neg
-# randomly_make_set_folders(150,100,100,pos_path,neg_path)
+def part2_creat_sets():
+    print 'randomly select sets \n'
+    pos_path = 'review_polarity/txt_sentoken/pos'
+    neg_path = 'review_polarity/txt_sentoken/neg'
+    # training 800
+    # vali&test 100 from pos, 100 from neg
+    randomly_make_set_folders(800,100,100,pos_path,neg_path)
 
+def part2():
+    global train_pos_dic, train_neg_dic, train_total_dic
+    global count_train_pos, count_train_neg, count_train_total
+    global prob_pos, prob_neg
+    
+    prob_pos, prob_neg = 0, 0
+    
+    train_pos_dic = {}
+    train_neg_dic = {}
+    train_total_dic = {}
+    
+    count_train_pos = 0
+    count_train_neg = 0
+    count_train_total = 0
+    
 
-count_words_train_pos, word_prob_dic_train_pos,word_dic_train_pos = count_word_prob('train/pos')
-count_words_train_neg, word_prob_dic_train_neg,word_dic_train_neg = count_word_prob('train/neg')
+    m = 0.1
+    print 'm =',m
+    k = 50
+    print 'k =',k
+    
+    train_pos_dic, count_train_pos = count_word_prob ('train/pos')
+    train_neg_dic, count_train_neg = count_word_prob ('train/neg')
+   
+    train_total_dic = {k: train_pos_dic.get(k, 0) + train_neg_dic.get(k, 0) for k in set(train_pos_dic) | set(train_neg_dic)}
+    
+    count_train_total = float(count_train_pos + count_train_neg)
+    
+    prob_pos = count_train_pos / count_train_total
+    prob_neg = count_train_neg / count_train_total
+    
+    train_accuracy = get_general_performance('train/pos','train/neg', m, k)
+    val_accuracy = get_general_performance('vali/pos','vali/neg', m, k)
+    test_accuracy = get_general_performance('test/pos','test/neg', m, k)
+    
+    print ("Training performance: "+str(train_accuracy)+"%")
+    print ("Validation performance: "+str(val_accuracy)+"%")
+    print ("Test performance: "+str(test_accuracy)+"%")
 
-
-prob_train_pos = prob_cls_given_ai(word_list,count_words,word_prob_dic,word_dic,cls,prob_pos,prob_neg, m=0.01,k=10)
-
-
+##  let's call
+# print '---run - part 1---\n'
+# part1()
+# print '---run - part 2 ---\n'
+# part2_creat_sets()
+part2()
 
 
 
