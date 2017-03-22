@@ -3,12 +3,11 @@ import os
 from collections import OrderedDict
 import re
 from collections import Counter
-#import operator
 from shutil import copy2
 import math
-
-
 import string
+import heapq
+from numpy import random
 
 
 # read polarity dataset
@@ -23,13 +22,12 @@ def read_file():
         for txt_file in os.listdir(path):
             with open(path + '/' + txt_file) as f:
 
-
-                file_list = f.read().lower()
+                file_word_list = f.read().lower()
                 for pun in string.punctuation:
-                  file_list = file_list.replace(pun," ")
-                file_list = re.split('\W+', file_list)
+                    file_word_list = file_word_list.replace(pun," ")
+                file_word_list = re.split('\W+', file_word_list)
                 file_word_list.remove('')
-                file_list = list(OrderedDict.fromkeys(file_list))
+                file__word_list = list(OrderedDict.fromkeys(file_word_list))
 
                 #merge word_lists
                 keyword += file_word_list
@@ -201,7 +199,7 @@ def part2_creat_sets():
     # vali&test 100 from pos, 100 from neg
     randomly_make_set_folders(800,100,100,pos_path,neg_path)
 
-def part2():
+def part2_part3():
     global train_pos_dic, train_neg_dic, train_total_dic
     global count_train_pos, count_train_neg, count_train_total
     global prob_pos, prob_neg
@@ -216,7 +214,6 @@ def part2():
     count_train_neg = 0
     count_train_total = 0
     
-
     m = 0.1
     print 'm =',m
     k = 50
@@ -239,13 +236,34 @@ def part2():
     print ("Training performance: "+str(train_accuracy)+"%")
     print ("Validation performance: "+str(val_accuracy)+"%")
     print ("Test performance: "+str(test_accuracy)+"%")
+    
+    
+    print '\n part3-----'
+    h_pos = []
+    h_neg = []
+    
+    for word in train_pos_dic:
+        prob_pos_given_word = prob_C_given_word(1, word, m, k)
+        heapq.heappush(h_pos, (prob_pos_given_word, word))
+    
+    for word in train_neg_dic:
+        prob_neg_given_word = prob_C_given_word(0, word, m, k)
+        heapq.heappush(h_neg, (prob_neg_given_word, word))
+        
+    top10_pos = heapq.nlargest(10, h_pos)
+    top10_neg = heapq.nlargest(10, h_neg)
+    
+    print 'top 10 pos predicted:', ([voca[1] for voca in top10_pos])
+    print '\n'
+    print 'top 10 neg predicted:', ([voca[1] for voca in top10_neg])
+
 
 ##  let's call
 # print '---run - part 1---\n'
-# part1()
+part1()
 # print '---run - part 2 ---\n'
 # part2_creat_sets()
-part2()
+part2_part3()
 
 
 
