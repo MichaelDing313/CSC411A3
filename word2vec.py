@@ -21,12 +21,27 @@ import tarfile
 
 import random
 import string
+
+import matplotlib.pyplot as plt
+import matplotlib.cbook as cbook
+import matplotlib.image as mpimg
+from matplotlib.pyplot import *
+
+from scipy.misc import imread
+from scipy.misc import imresize
+from scipy.misc import imsave
+
+
+
+
 ## END IMPORTS
 
 
 ####################
 ## MISC FUNCTIONS ##
 ####################
+
+import tensorflow as tf
 
 def log_event(log_string, level = "ALL"):
     '''
@@ -396,7 +411,7 @@ def fix_words(w2i, wc):
     fixed_context = dict.fromkeys(valid_words)
     fixed_w2i = dict.fromkeys(valid_words)
     for i in valid_words:
-        fixed_context[i] = wc[i]
+        fixed_context[i] = set(wc[i]).intersection(valid_words)
         fixed_w2i[i] = flip_w2i[i]
         
     return fixed_w2i, fixed_context
@@ -404,29 +419,68 @@ def fix_words(w2i, wc):
     log_event("Finished Fixing Word Inconsistencies",2)
 
 ## Get Minibatch For Training
-def get_batch(context_dic, embed_dic, batch_size):
+def get_batch(context_dic, embeds, embed_lookup, batch_size):
     '''
     This function extracts a subset of the input data to train logistic regression
     returns two lists, the input word set and answers related to that word
     
     '''
+    log_event("Batching",1)
     
-    # Not specifying exactly how many positive and negative examples to use
-    # because its much easier and faster and more reliabel to not
+    
+    # Given batch size, give half positive and half negative examples
+    p_size = batch_size/2
+    n_size = batch_size - p_size
     
     # List of all words we are looking at
     word_list = context_dic.keys()
     
-    ret = np.empty(batch_size,2)
+    ret_y = []
+    ret_x = np.empty((256,batch_size))
     
-    for i in range(batch_size):
-        # Loop batch_size times, adding a data pair every time
+    # Generate the positive examples first, using the input dictionaries
+    i = 0
+    while i < (p_size):
+        # Loop for number of positive examples we need
+        
+        # Pick a randome word for adjacency
+        rand_1st = random.choice(word_list)
+        
+        # Pick, from the word's adjacent words, the second word
+        
+        # If this word have no adjacency from this set, skip
+        if len(context_dic[rand_1st]) == 0:
+            continue
+        rand_2nd = random.sample(context_dic[rand_1st],1)[0]
+        
+        # Add the embeddings of this word to the batch x for return
+        ret_x[:,i] = np.concatenate((embeds[embed_lookup[rand_1st]],embeds[embed_lookup[rand_2nd]])).flatten()
+        ret_y.append([1,0])
+        i += 1
+    
+    
+    # Generate the negative test sets by random generation, randomly choosing sets yield almost
+    # all non adjacent words
+    for i in range(n_size):
+        # Loop for number of negative example we need, adding a data pair every time
         
         # Generate two words from the big list
         rand_word = random.sample(word_list, 2)
         
         # Check if these two words are adjacent
-        if 
+        if rand_word[1] in context_dic[rand_word[0]]: adjacent = [1,0]
+        elif rand_word[0] in context_dic[rand_word[1]]: adjacent = [1,0] # Dictionay should be symmetrical, but incase its not
+        else: adjacent = [0,1]
+        
+        # Append the answer vector with the correct guess
+        ret_y.append(adjacent)
+        
+        #import pdb; pdb.set_trace()
+        # Lookup 
+        ret_x[:,i+p_size] = np.concatenate((embeds[embed_lookup[rand_word[0]]],embeds[embed_lookup[rand_word[1]]])).flatten()
+        
+    return ret_x.T, np.array(ret_y)
+        
         
 ############
 ## PART 7 ##
@@ -441,7 +495,7 @@ def part7():
 ##########################
 
 ## Init code
-log_level = "ALL"
+log_level = "SHORT"
 
 part7()
 
@@ -454,22 +508,145 @@ random.seed(4115555)
 pos_train, pos_vali, pos_test = split_set(pos_data)
 neg_train, neg_vali, neg_test = split_set(neg_data)
 
-# count training set word usage
-count_pos = tally_counts(pos_data,pos_train)
-count_neg = tally_counts(neg_data,neg_train)
-
 # Build a combined dictionary containinting both negative and positive words
 combined_dic = {}
 combined_dic.update(pos_data)
 combined_dic.update(neg_data)
 
-# Build adjacency lists for all words
-word_context = build_context(combined_dic,pos_train+neg_train,'combined')
+# Build adjacency lists for training words wc = Word Context
+wc_train = build_context(combined_dic,pos_train+neg_train,'Training')
+
+# Build adjaency lists for test and validation 
+wc_vali = build_context(combined_dic,pos_vali+neg_vali,'Validation')
+wc_test = build_context(combined_dic,pos_test+neg_test,'Test')
 
 # Load embeddings from 
 embed = np.load("embeddings.npz")["emb"]
 w2i = np.load("embeddings.npz")["word2ind"].flatten()[0]
 
-w2i, word_context = fix_words(w2i, word_context)
+# Resolve Inconsistenceis in Adjacency lists so tf dont complain
+train_w2i, wc_train = fix_words(w2i, wc_train)
+vali_w2i, wc_vali = fix_words(w2i, wc_vali)
+test_w2i, wc_test = fix_words(w2i, wc_test)
+
+# Test batch function
+batch_x, batch_y = get_batch(wc_train, embed, train_w2i, 10)
+
+## Build Tensorflow Model to Train Logistic Regression
+
+x = tf.placeholder(tf.float32, [None, 256])
+   
+W0 = tf.Variable(tf.zeros([256, 2]))
+b0 = tf.Variable([0.0])
+
+
+
+
+
+
+y = tf.nn.softmax(tf.matmul(x, W0)+b0)
+    
+y_ = tf.placeholder(tf.float32, [None, 2])
+
+
+# lam = 0.0#10#0.0005
+# decay_penalty =lam*tf.reduce_sum(tf.square(W0))+lam*tf.reduce_sum(tf.square(W1))
+reg_NLL = -tf.reduce_sum(y_*tf.log(y))#+decay_penalty
+
+train_step = tf.train.GradientDescentOptimizer(3e-4).minimize(reg_NLL)
+
+init = tf.initialize_all_variables()
+sess = tf.Session()
+sess.run(init)
+
+correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_,1))
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+plot_x = []
+plot_test = []
+plot_train = []
+plot_vali = []
+
+
+
+iter = 1000;
+for i in range(iter):
+    #print i  
+    batch_xs, batch_ys = get_batch(wc_train, embed, train_w2i, 50000)
+    sess.run(train_step, feed_dict={x: batch_xs, y_: batch_ys})
+    
+    if i % 1 == 0:
+        train_x, train_y = get_batch(wc_train, embed, train_w2i, 5000)
+        vali_x, vali_y = get_batch(wc_vali, embed, vali_w2i, 5000)
+        test_x, test_y = get_batch(wc_test, embed, test_w2i, 5000)
+        plot_test.append(sess.run(accuracy, feed_dict={x: test_x, y_: test_y}))
+        plot_train.append(sess.run(accuracy, feed_dict={x: train_x, y_: train_y}))
+        plot_vali.append(sess.run(accuracy, feed_dict={x: vali_x, y_: vali_y}))
+        plot_x.append(i)
+    
+    if i % 100 == 0:
+        print "i=",i    
+        print "Train:", plot_train[-1]
+        print "Vali:", plot_vali[-1]
+        print "Test:", plot_test[-1]
+        
+try:
+    plt.figure()
+    plt.plot(plot_x, plot_train, '-g', label='Training')
+    plt.plot(plot_x, plot_vali, '-r', label='Validation')
+    plt.plot(plot_x, plot_test, '-b', label='Test')
+    plt.xlabel("Training Iterations")
+    plt.ylabel("Accuracy")
+    plt.title("Traning Curve")
+    plt.legend(loc='bottom right')
+    plt.show()
+except:
+    print("plot fail")
+
+
+snapshot = {}
+snapshot['W0'] = sess.run(W0)
+snapshot['b0'] = sess.run(b0)
+import cPickle
+cPickle.dump(snapshot,  open("pt7_trained.pkl", "w"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
