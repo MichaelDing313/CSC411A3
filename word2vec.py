@@ -486,8 +486,116 @@ def get_batch(context_dic, embeds, embed_lookup, batch_size):
 ## PART 7 ##
 ############
 def part7():
-    pass
+    # read data
+    pos_data,neg_data = read_data()
+    
+    # obtain train, validation and test data
+    random.seed(4115555)
+    pos_train, pos_vali, pos_test = split_set(pos_data)
+    neg_train, neg_vali, neg_test = split_set(neg_data)
+    
+    # Build a combined dictionary containinting both negative and positive words
+    combined_dic = {}
+    combined_dic.update(pos_data)
+    combined_dic.update(neg_data)
+    
+    # Build adjacency lists for training words wc = Word Context
+    wc_train = build_context(combined_dic,pos_train+neg_train,'Training')
+    
+    # Build adjaency lists for test and validation 
+    wc_vali = build_context(combined_dic,pos_vali+neg_vali,'Validation')
+    wc_test = build_context(combined_dic,pos_test+neg_test,'Test')
+    
+    # Load embeddings from 
+    embed = np.load("embeddings.npz")["emb"]
+    w2i = np.load("embeddings.npz")["word2ind"].flatten()[0]
+    
+    # Resolve Inconsistenceis in Adjacency lists so tf dont complain
+    train_w2i, wc_train = fix_words(w2i, wc_train)
+    vali_w2i, wc_vali = fix_words(w2i, wc_vali)
+    test_w2i, wc_test = fix_words(w2i, wc_test)
+    
+    # Test batch function
+    batch_x, batch_y = get_batch(wc_train, embed, train_w2i, 10)
+    
+    ## Build Tensorflow Model to Train Logistic Regression
+    
+    x = tf.placeholder(tf.float32, [None, 256])
+    
+    W0 = tf.Variable(tf.zeros([256, 2]))
+    b0 = tf.Variable([0.0])
+    
+    
+    y = tf.nn.softmax(tf.matmul(x, W0)+b0)
+        
+    y_ = tf.placeholder(tf.float32, [None, 2])
+    
+    
+    # lam = 0.0#10#0.0005
+    # decay_penalty =lam*tf.reduce_sum(tf.square(W0))+lam*tf.reduce_sum(tf.square(W1))
+    reg_NLL = -tf.reduce_sum(y_*tf.log(y))#+decay_penalty
+    
+    train_step = tf.train.GradientDescentOptimizer(3e-4).minimize(reg_NLL)
+    
+    init = tf.initialize_all_variables()
+    sess = tf.Session()
+    sess.run(init)
+    
+    correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_,1))
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    
+    plot_x = []
+    plot_test = []
+    plot_train = []
+    plot_vali = []
+    
+    
+    
+    iter = 1000;
+    for i in range(iter):
+        #print i  
+        batch_xs, batch_ys = get_batch(wc_train, embed, train_w2i, 50000)
+        sess.run(train_step, feed_dict={x: batch_xs, y_: batch_ys})
+        
+        if i % 1 == 0:
+            train_x, train_y = get_batch(wc_train, embed, train_w2i, 5000)
+            vali_x, vali_y = get_batch(wc_vali, embed, vali_w2i, 5000)
+            test_x, test_y = get_batch(wc_test, embed, test_w2i, 5000)
+            plot_test.append(sess.run(accuracy, feed_dict={x: test_x, y_: test_y}))
+            plot_train.append(sess.run(accuracy, feed_dict={x: train_x, y_: train_y}))
+            plot_vali.append(sess.run(accuracy, feed_dict={x: vali_x, y_: vali_y}))
+            plot_x.append(i)
+        
+        if i % 100 == 0:
+            print "i=",i    
+            print "Train:", plot_train[-1]
+            print "Vali:", plot_vali[-1]
+            print "Test:", plot_test[-1]
+            
+    try:
+        plt.figure()
+        plt.plot(plot_x, plot_train, '-g', label='Training')
+        plt.plot(plot_x, plot_vali, '-r', label='Validation')
+        plt.plot(plot_x, plot_test, '-b', label='Test')
+        plt.xlabel("Training Iterations")
+        plt.ylabel("Accuracy")
+        plt.title("Traning Curve")
+        plt.legend(loc='bottom right')
+        plt.show()
+    except:
+        print("plot fail")
+    
+    
+    # snapshot = {}
+    # snapshot['W0'] = sess.run(W0)
+    # snapshot['b0'] = sess.run(b0)
+    # import cPickle
+    # cPickle.dump(snapshot,  open("pt7_trained.pkl", "w"))
 
+############
+## PART 8 ##
+############
+def part8():
 
 
 ##########################
@@ -497,120 +605,11 @@ def part7():
 ## Init code
 log_level = "SHORT"
 
+log_event("-------------- PART 7 --------------------",9)
 part7()
 
-log_event("-------------- PART 7 --------------------",9)
-# read data
-pos_data,neg_data = read_data()
-
-# obtain train, validation and test data
-random.seed(4115555)
-pos_train, pos_vali, pos_test = split_set(pos_data)
-neg_train, neg_vali, neg_test = split_set(neg_data)
-
-# Build a combined dictionary containinting both negative and positive words
-combined_dic = {}
-combined_dic.update(pos_data)
-combined_dic.update(neg_data)
-
-# Build adjacency lists for training words wc = Word Context
-wc_train = build_context(combined_dic,pos_train+neg_train,'Training')
-
-# Build adjaency lists for test and validation 
-wc_vali = build_context(combined_dic,pos_vali+neg_vali,'Validation')
-wc_test = build_context(combined_dic,pos_test+neg_test,'Test')
-
-# Load embeddings from 
-embed = np.load("embeddings.npz")["emb"]
-w2i = np.load("embeddings.npz")["word2ind"].flatten()[0]
-
-# Resolve Inconsistenceis in Adjacency lists so tf dont complain
-train_w2i, wc_train = fix_words(w2i, wc_train)
-vali_w2i, wc_vali = fix_words(w2i, wc_vali)
-test_w2i, wc_test = fix_words(w2i, wc_test)
-
-# Test batch function
-batch_x, batch_y = get_batch(wc_train, embed, train_w2i, 10)
-
-## Build Tensorflow Model to Train Logistic Regression
-
-x = tf.placeholder(tf.float32, [None, 256])
-   
-W0 = tf.Variable(tf.zeros([256, 2]))
-b0 = tf.Variable([0.0])
-
-
-
-
-
-
-y = tf.nn.softmax(tf.matmul(x, W0)+b0)
-    
-y_ = tf.placeholder(tf.float32, [None, 2])
-
-
-# lam = 0.0#10#0.0005
-# decay_penalty =lam*tf.reduce_sum(tf.square(W0))+lam*tf.reduce_sum(tf.square(W1))
-reg_NLL = -tf.reduce_sum(y_*tf.log(y))#+decay_penalty
-
-train_step = tf.train.GradientDescentOptimizer(3e-4).minimize(reg_NLL)
-
-init = tf.initialize_all_variables()
-sess = tf.Session()
-sess.run(init)
-
-correct_prediction = tf.equal(tf.argmax(y,1), tf.argmax(y_,1))
-accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-plot_x = []
-plot_test = []
-plot_train = []
-plot_vali = []
-
-
-
-iter = 1000;
-for i in range(iter):
-    #print i  
-    batch_xs, batch_ys = get_batch(wc_train, embed, train_w2i, 50000)
-    sess.run(train_step, feed_dict={x: batch_xs, y_: batch_ys})
-    
-    if i % 1 == 0:
-        train_x, train_y = get_batch(wc_train, embed, train_w2i, 5000)
-        vali_x, vali_y = get_batch(wc_vali, embed, vali_w2i, 5000)
-        test_x, test_y = get_batch(wc_test, embed, test_w2i, 5000)
-        plot_test.append(sess.run(accuracy, feed_dict={x: test_x, y_: test_y}))
-        plot_train.append(sess.run(accuracy, feed_dict={x: train_x, y_: train_y}))
-        plot_vali.append(sess.run(accuracy, feed_dict={x: vali_x, y_: vali_y}))
-        plot_x.append(i)
-    
-    if i % 100 == 0:
-        print "i=",i    
-        print "Train:", plot_train[-1]
-        print "Vali:", plot_vali[-1]
-        print "Test:", plot_test[-1]
-        
-try:
-    plt.figure()
-    plt.plot(plot_x, plot_train, '-g', label='Training')
-    plt.plot(plot_x, plot_vali, '-r', label='Validation')
-    plt.plot(plot_x, plot_test, '-b', label='Test')
-    plt.xlabel("Training Iterations")
-    plt.ylabel("Accuracy")
-    plt.title("Traning Curve")
-    plt.legend(loc='bottom right')
-    plt.show()
-except:
-    print("plot fail")
-
-
-snapshot = {}
-snapshot['W0'] = sess.run(W0)
-snapshot['b0'] = sess.run(b0)
-import cPickle
-cPickle.dump(snapshot,  open("pt7_trained.pkl", "w"))
-
-
+log_event("-------------- PART 8 --------------------",9)
+part8()
 
 
 
